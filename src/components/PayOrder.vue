@@ -3,6 +3,8 @@
   <div class="pay-info">
     <div>
       <span class="pay-trans">complete your transaction</span><br>
+      <span class="pay-tips">you must save your orderId carefully</span><br>
+      <span class="pay-tips">orderId:{{orderId}}</span><br>
       <span class="pay-tips">this info is very important,you must send your payment in a single transaction.</span>
     </div>
     <div class="pay-copy">
@@ -37,6 +39,7 @@ import QRCode from "qrcode";
 const props = defineProps<{
   payAddress: String,
   payAmount: Number,
+  orderId:String,
 }>()
 const {payAddress, payAmount} = toRefs(props);
 // const address = "bc1pcz757333z8hauexzdk867n3cpht09ahnnulfkk8vdtmnfva49u8spfnsjp";

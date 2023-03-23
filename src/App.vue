@@ -48,7 +48,7 @@
           jpg/png files with a size less than 500kb
         </div>
       </el-upload>
-      <el-input v-model="receiveAddress" placeholder="second,you should input your receive btc address"/>
+      <el-input v-model="receiveAddress" required placeholder="second,you should input your receive btc address"/>
       <div class="fee-rate">
         <FeeRate @click="handleClick('economy')" ref="feeRateCmp" class="rat-box click-element" feeType="economy"
                  :isSelected="selected === 'economy'"
@@ -69,7 +69,8 @@
       <el-input-number v-if="showInputNumber" class="hidden" v-model="priority" placeholder="input the feerate"/>
       <p>final,choose your fee-rat and pay for inscribe.</p>
       <div class="pay-order">
-        <el-button size="large" class="pay-button" type="primary" plain @click="() => { payInfo(); visible=true; }">Pay
+        <el-button size="large" class="pay-button" type="primary" plain @click="() => { payAndCheck(); }">
+          Pay
           and Inscribe
         </el-button>
         <!--        @click="payInfo;visible=true"-->
@@ -82,7 +83,7 @@
   </div>
   <el-dialog v-model="visible" width="60%" center>
     <div style="height: 500px">
-      <PayOrder :payAddress="payAddress" :payAmount="payAmount"/>
+      <PayOrder :payAddress="payAddress" :payAmount="payAmount" :orderId="orderId"/>
     </div>
     <template #footer>
       <span class="dialog-footer">
@@ -144,6 +145,7 @@ import FeeRate from "./components/FeeRate.vue";
 import InsOrder from "./components/InsOrder.vue";
 import PayOrder from "./components/PayOrder.vue";
 
+const sessionId = ref('');
 const receiveAddress = ref('')
 const activeIndex = ref('1')
 const regular = ref<number>(0)
@@ -164,7 +166,10 @@ const uploadUrl = "http://localhost:8080/upload"; // 设置上传地址
 // 上传成功后执行的函数，response 参数为后端返回的数据
 const handleUploadSuccess = (response: any) => {
   console.log("上传成功", response);
-  fileSize.value = Number(response);
+  const resp = String(response).split(",");
+  fileSize.value = Number(resp[0]);
+  sessionId.value = resp[1];
+  console.log(sessionId.value)
 };
 const receivedData = ref('');
 watch(priority, (newVal, oldVal) => {
@@ -213,21 +218,57 @@ function handleClick(type: string) {
 // const payAddress = "1HnopzK1rKj7z3KsfDYCc3P1M3U4SJHoyk";
 const payAddress = ref("");
 const payAmount = ref(0);
+import {getOrder} from './api/order';
+import {getPayInfo} from "@/api/pay";
 
-function payInfo() {
+interface PayData {
+  receiveAddress: string;
+}
+
+const orderId = ref("");
+
+function payAndCheck() {
+  if (!receiveAddress.value||!fileSize.value) {
+    alert("receive address and file is required");
+    visible.value = false;
+    return;
+  } else {
+    visible.value = true;
+    payInfo();
+  }
+}
+
+async function payInfo() {
+
   //get payinfo,paysats
   console.log("付款时：" + totalSat)
   payAmount.value = totalSat / 100000000;
+  const network = Number(finalNetwork.value) / 100000000;
+  const service = Number(finalService.value) / 100000000;
+  console.log(network)
+  console.log(service)
   // call backend to get btc new address TODO
-  payAddress.value = "1HnopzK1rKj7z3KsfDYCc3P1M3U4SJHoyk"
-  console.log(payAddress.value)
-  console.log(payAddress.value)
+  const res = await getPayInfo(payAmount.value, fileSize.value, sessionId.value, finalFeeRate.value, service, network, receiveAddress.value);
+  console.log(res)
+  const resp = String(res).split(",");
+  payAddress.value = String(resp[0]);
+  orderId.value = resp[1];
+  // console.log(orderData.value)
+  // payAddress.value = res
+  // payAddress.value = res;
 }
 
+const finalNetwork = ref(0);
+const finalService = ref(0);
+const finalFeeRate = ref(0);
 
 function getTotalSats(feeRate: number, fileSize: number) {
-  const network = feeRate * fileSize;
-  const service = (10000 + Number(network) * 0.08).toFixed(0);//
+  finalFeeRate.value = feeRate;
+  const network = feeRate * Math.ceil(fileSize / 4);
+  finalNetwork.value = network
+  // const service = (7000 + Number(network) * 0.08).toFixed(0);//
+  const service = 0;//
+  finalService.value = Number(service);
   const totalSat = (Number(network) + Number(service)) + 10000;//utxo 10000sats
   return totalSat;
 }
